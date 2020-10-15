@@ -1,0 +1,11 @@
+[package]
+authors = ["ayazhafiz <ayaz.hafiz.1@gmail.com>"]
+edition = "2018"
+name = "server"
+version = "0.0.0"
+
+[dependencies]
+tower-lsp = "0.13.3"
+
+[workspace]
+members = ["."]
