@@ -22,6 +22,3 @@ features = [
     "rt-core",
 ]
 version = "0.2.22"
-
-[workspace]
-members = ["."]

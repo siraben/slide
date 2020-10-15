@@ -5,8 +5,7 @@ macro_rules! parse_stmt {
         use crate::{parse_statements, scan};
 
         let tokens = scan($expr).tokens;
-        let (parsed, _) = parse_statements(tokens, $expr);
-        parsed
+        parse_statements(tokens, $expr).program
     }};
 }
 

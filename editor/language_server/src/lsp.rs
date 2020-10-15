@@ -8,8 +8,8 @@ use tower_lsp::{Client, LanguageServer, LspService, Server};
 
 use libslide::*;
 
-use std::collections::HashMap;
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
 
 mod diagnostics;
@@ -38,7 +38,9 @@ impl SlideLS {
     }
 
     fn doc_registry(&self) -> MutexGuard<Cell<DocumentRegistry>> {
-        self.document_registry.lock().expect("Failed to read document_registry")
+        self.document_registry
+            .lock()
+            .expect("Failed to read document_registry")
     }
 
     async fn change(&self, doc: Url, text: String, version: Option<i64>) {
@@ -56,21 +58,38 @@ impl SlideLS {
         //
         // We cache both the original program AST and evaluated AST so we can answer later queries
         // for original/optimized statements without re-evaluation.
-        
-        let context = ProgramContext::default().lint(true);
-        let ScanResult { tokens, diagnostics: scan_diags } = scan(&*text);
-        let ParseResult { program, diagnostics: parse_diags } = parse_statements(tokens, &text);
-        let lint_diags = lint_stmt(&program, &text);
-        let EvaluationResult { simplified, diagnostics: eval_diags } = evaluate(program.clone(), &context).expect("Evaluation failed.");
 
-        self.doc_registry().get_mut().insert(doc.clone(), ProgramInfo { original: program, simplified });
+        let context = ProgramContext::default().lint(true);
+        let ScanResult {
+            tokens,
+            diagnostics: scan_diags,
+        } = scan(&*text);
+        let ParseResult {
+            program,
+            diagnostics: parse_diags,
+        } = parse_statements(tokens, &text);
+        let lint_diags = lint_stmt(&program, &text);
+        let EvaluationResult {
+            simplified,
+            diagnostics: eval_diags,
+        } = evaluate(program.clone(), &context).expect("Evaluation failed.");
+
+        self.doc_registry().get_mut().insert(
+            doc.clone(),
+            ProgramInfo {
+                original: program,
+                simplified,
+            },
+        );
 
         let diags = [scan_diags, parse_diags, lint_diags, eval_diags]
             .iter()
             .flat_map(|diags| convert_diagnostics(diags, "slide", &doc, &text))
             .collect();
 
-        self.client.publish_diagnostics(doc.clone(), diags, version).await;
+        self.client
+            .publish_diagnostics(doc.clone(), diags, version)
+            .await;
     }
 
     fn close(&self, doc: &Url) {
@@ -82,12 +101,14 @@ impl SlideLS {
 impl LanguageServer for SlideLS {
     async fn initialize(&self, _params: InitializeParams) -> Result<InitializeResult> {
         // let hover_provider = Some(HoverProviderCapability::Simple(true));
-        let text_document_sync = Some(TextDocumentSyncCapability::Options(TextDocumentSyncOptions {
-            open_close: Some(true),
-            change: Some(TextDocumentSyncKind::Full),
-            ..TextDocumentSyncOptions::default()
-        }));
-        Ok(InitializeResult{
+        let text_document_sync = Some(TextDocumentSyncCapability::Options(
+            TextDocumentSyncOptions {
+                open_close: Some(true),
+                change: Some(TextDocumentSyncKind::Full),
+                ..TextDocumentSyncOptions::default()
+            },
+        ));
+        Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync,
                 // hover_provider,
@@ -108,7 +129,9 @@ impl LanguageServer for SlideLS {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        let TextDocumentItem { uri, text, version, .. } = params.text_document;
+        let TextDocumentItem {
+            uri, text, version, ..
+        } = params.text_document;
         self.change(uri, text, Some(version)).await;
     }
 
@@ -116,7 +139,8 @@ impl LanguageServer for SlideLS {
         let VersionedTextDocumentIdentifier { uri, version, .. } = params.text_document;
         // NOTE: We specify that we expect full-content syncs in the server capabilities,
         // so here we assume the only change passed is a change of the entire document's content.
-        let TextDocumentContentChangeEvent { text, .. } = params.content_changes.into_iter().next().unwrap();
+        let TextDocumentContentChangeEvent { text, .. } =
+            params.content_changes.into_iter().next().unwrap();
         self.change(uri, text, version).await;
     }
 

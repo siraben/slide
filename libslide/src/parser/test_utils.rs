@@ -13,7 +13,7 @@ macro_rules! __parse {
             pin.to_owned()
         };
         let tokens = scan(pin).tokens;
-        let (parsed, _) = parse_statements(tokens, pin);
+        let parsed = parse_statements(tokens, pin).program;
         (parsed, pin, pout)
     }};
 
@@ -29,7 +29,7 @@ macro_rules! __parse {
             pin.to_owned()
         };
         let tokens = scan(pin).tokens;
-        let (parsed, _) = parse_expression_pattern(tokens);
+        let parsed = parse_expression_pattern(tokens).program;
         (parsed, pin, pout)
     }};
 }

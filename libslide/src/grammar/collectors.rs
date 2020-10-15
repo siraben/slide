@@ -60,7 +60,7 @@ mod test {
 
     #[test]
     fn collect_pat_names() {
-        let parsed = parse_expression_pattern(scan("$a + _b * (#c - [$d]) / $a").tokens).0;
+        let parsed = parse_expression_pattern(scan("$a + _b * (#c - [$d]) / $a").tokens).program;
         let pats = super::collect_pat_names(&parsed);
 
         let mut pats: Vec<_> = pats.into_iter().collect();
