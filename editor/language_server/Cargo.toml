@@ -1,0 +1,27 @@
+[package]
+authors = ["ayazhafiz <ayaz.hafiz.1@gmail.com>"]
+edition = "2018"
+name = "slide_ls"
+version = "0.0.0"
+
+[[bin]]
+name = "slide_ls"
+path = "src/lsp.rs"
+
+[dependencies]
+tower-lsp = "0.13.3"
+
+[dependencies.libslide]
+path = "../../libslide"
+
+[dependencies.tokio]
+features = [
+    "macros",
+    "tcp",
+    "io-std",
+    "rt-core",
+]
+version = "0.2.22"
+
+[workspace]
+members = ["."]

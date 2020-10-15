@@ -213,12 +213,14 @@ pub mod diagnostics;
 pub mod scanner;
 pub use scanner::scan;
 pub(crate) use scanner::ScanErrors;
+pub use scanner::ScanResult;
 pub use scanner::Token;
 
 mod parser;
 pub use parser::parse_expression_pattern;
-pub use parser::parse_statement;
+pub use parser::parse_statements;
 pub(crate) use parser::ParseErrors;
+pub use parser::ParseResult;
 
 mod linter;
 pub use linter::lint_expr_pat;

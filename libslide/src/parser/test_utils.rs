@@ -1,8 +1,8 @@
 #![cfg(test)]
 
 macro_rules! __parse {
-    (parse_statement, $inout:expr) => {{
-        use crate::parser::parse_statement;
+    (parse_statements, $inout:expr) => {{
+        use crate::parser::parse_statements;
         use crate::scanner::scan;
 
         let inout: Vec<&str> = $inout.split(" => ").collect();
@@ -13,7 +13,7 @@ macro_rules! __parse {
             pin.to_owned()
         };
         let tokens = scan(pin).tokens;
-        let (parsed, _) = parse_statement(tokens, pin);
+        let (parsed, _) = parse_statements(tokens, pin);
         (parsed, pin, pout)
     }};
 
@@ -39,7 +39,7 @@ macro_rules! __check_parsed {
         use crate::grammar::*;
         use crate::parser::test_utils::verify_expr_spans;
 
-        let (parsed, input, expected_out) = __parse!(parse_statement, $inout);
+        let (parsed, input, expected_out) = __parse!(parse_statements, $inout);
         assert_eq!(parsed.to_string(), expected_out);
 
         if input == expected_out {
