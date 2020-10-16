@@ -34,6 +34,7 @@ pub fn get_hover_info(
         }
     } else {
         // A subexpression - simplify it.
+        // TODO: we only need to build rules once.
         let rules = build_rules(context).ok()?;
         evaluate_expr(tightest_expr.clone(), &rules, context).to_string()
     };
