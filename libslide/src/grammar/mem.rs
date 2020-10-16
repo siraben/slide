@@ -107,7 +107,7 @@ macro_rules! make_counted {
             /// The original span of this expression from an input source code.
             /// Even though the expression may be shared, this span is distinct and serves
             /// as a backwards-mapping to where the expression originally came from.
-            pub(crate) span: Span,
+            pub span: Span,
         }
 
         impl $counted_struct {

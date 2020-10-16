@@ -56,7 +56,7 @@ fn to_severity(diagnostic_kind: &s::DiagnosticKind) -> DiagnosticSeverity {
     }
 }
 
-fn to_range(span: &Span, source: &str) -> Range {
+pub fn to_range(span: &Span, source: &str) -> Range {
     Range::new(to_position(span.lo, source), to_position(span.hi, source))
 }
 
@@ -74,4 +74,15 @@ fn to_position(offset: usize, source: &str) -> Position {
         cur += line.len() + 1;
     }
     Position::new(source.lines().count() as u64, 0)
+}
+
+pub fn to_offset(position: &Position, source: &str) -> usize {
+    // Use split_terminator instead of lines so that if there is a `\r`,
+    // it is included in the offset calculation. The `+1` values below
+    // account for the `\n`.
+    source
+        .split_terminator('\n')
+        .take(position.line as usize)
+        .fold(0, |acc, line| acc + line.len() + 1)
+        + position.character as usize
 }

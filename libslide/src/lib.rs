@@ -202,8 +202,10 @@
 
 #[macro_use]
 mod grammar;
+pub use grammar::collectors;
 pub(crate) use grammar::InternedStr;
-pub use grammar::{ExprPat, Grammar, Stmt, StmtKind, StmtList};
+pub use grammar::StmtVisitor;
+pub use grammar::{Assignment, Expr, ExprPat, Grammar, RcExpr, Stmt, StmtKind, StmtList};
 
 mod common;
 pub use common::*;
@@ -228,7 +230,9 @@ pub use linter::lint_stmt;
 pub(crate) use linter::LintConfig;
 
 mod partial_evaluator;
+pub use partial_evaluator::build_rules;
 pub use partial_evaluator::evaluate;
+pub use partial_evaluator::evaluate_expr;
 pub use partial_evaluator::EvaluationResult;
 pub(crate) use partial_evaluator::PartialEvaluatorErrors;
 

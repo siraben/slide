@@ -1,22 +1,28 @@
 //! Crate `slide_ls` implements a language server for [slide](libslide).
 
 #![deny(warnings)]
+#![deny(missing_docs)]
+#![doc(html_logo_url = "https://raw.githubusercontent.com/yslide/slide/master/assets/logo.png")]
 
+use libslide::*;
+
+use parking_lot::{MappedMutexGuard, Mutex, MutexGuard};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use libslide::*;
-
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Mutex, MutexGuard};
+use std::ops::Deref;
 
-mod diagnostics;
-use diagnostics::convert_diagnostics;
+mod services;
+mod shims;
+use shims::convert_diagnostics;
 
+// TODO(https://github.com/rust-lang/rust/issues/78003): used by pseudo-public providers.
+#[allow(private_in_public)]
 struct ProgramInfo {
-    #[allow(unused)]
+    source: String,
     original: StmtList,
     #[allow(unused)]
     simplified: StmtList,
@@ -26,7 +32,9 @@ type DocumentRegistry = HashMap<Url, ProgramInfo>;
 
 struct SlideLS {
     client: Client,
-    document_registry: Mutex<Cell<DocumentRegistry>>,
+    document_registry: Mutex<RefCell<DocumentRegistry>>,
+    // This is always correctly set after `initialize`.
+    context: Mutex<RefCell<ProgramContext>>,
 }
 
 impl SlideLS {
@@ -34,13 +42,8 @@ impl SlideLS {
         Self {
             client,
             document_registry: Default::default(),
+            context: Default::default(),
         }
-    }
-
-    fn doc_registry(&self) -> MutexGuard<Cell<DocumentRegistry>> {
-        self.document_registry
-            .lock()
-            .expect("Failed to read document_registry")
     }
 
     async fn change(&self, doc: Url, text: String, version: Option<i64>) {
@@ -59,7 +62,7 @@ impl SlideLS {
         // We cache both the original program AST and evaluated AST so we can answer later queries
         // for original/optimized statements without re-evaluation.
 
-        let context = ProgramContext::default().lint(true);
+        // 1. Parse
         let ScanResult {
             tokens,
             diagnostics: scan_diags,
@@ -69,38 +72,55 @@ impl SlideLS {
             diagnostics: parse_diags,
         } = parse_statements(tokens, &text);
         let lint_diags = lint_stmt(&program, &text);
+        // 2. Eval
         let EvaluationResult {
             simplified,
             diagnostics: eval_diags,
-        } = evaluate(program.clone(), &context).expect("Evaluation failed.");
+        } = evaluate(program.clone(), &self.context().deref()).expect("Evaluation failed.");
 
-        self.doc_registry().get_mut().insert(
-            doc.clone(),
-            ProgramInfo {
-                original: program,
-                simplified,
-            },
-        );
-
+        // 3. Publish diagnostics
         let diags = [scan_diags, parse_diags, lint_diags, eval_diags]
             .iter()
             .flat_map(|diags| convert_diagnostics(diags, "slide", &doc, &text))
             .collect();
-
         self.client
             .publish_diagnostics(doc.clone(), diags, version)
             .await;
+
+        // Final: save results
+        self.doc_registry().get_mut().insert(
+            doc.clone(),
+            ProgramInfo {
+                source: text,
+                original: program,
+                simplified,
+            },
+        );
     }
 
     fn close(&self, doc: &Url) {
         self.doc_registry().get_mut().remove(doc);
+    }
+
+    fn doc_registry(&self) -> MutexGuard<RefCell<DocumentRegistry>> {
+        self.document_registry.lock()
+    }
+
+    fn get_program_info(&self, doc: &Url) -> MappedMutexGuard<ProgramInfo> {
+        MutexGuard::map(self.doc_registry(), |dr| dr.get_mut().get_mut(doc).unwrap())
+    }
+
+    fn context(&self) -> MappedMutexGuard<ProgramContext> {
+        MutexGuard::map(self.context.lock(), |pc| pc.get_mut())
     }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for SlideLS {
     async fn initialize(&self, _params: InitializeParams) -> Result<InitializeResult> {
-        // let hover_provider = Some(HoverProviderCapability::Simple(true));
+        let context = ProgramContext::default().lint(true);
+        self.context.lock().replace(context);
+
         let text_document_sync = Some(TextDocumentSyncCapability::Options(
             TextDocumentSyncOptions {
                 open_close: Some(true),
@@ -108,10 +128,12 @@ impl LanguageServer for SlideLS {
                 ..TextDocumentSyncOptions::default()
             },
         ));
+        let hover_provider = Some(HoverProviderCapability::Simple(true));
+
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync,
-                // hover_provider,
+                hover_provider,
                 ..ServerCapabilities::default()
             },
             ..InitializeResult::default()
@@ -147,6 +169,18 @@ impl LanguageServer for SlideLS {
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
         let TextDocumentIdentifier { uri } = params.text_document;
         self.close(&uri);
+    }
+
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let TextDocumentPositionParams {
+            text_document: TextDocumentIdentifier { uri },
+            position,
+        } = params.text_document_position_params;
+        let program_info = self.get_program_info(&uri);
+        let context = self.context();
+
+        let hover = services::get_hover_info(position, program_info, context.deref());
+        Ok(hover)
     }
 }
 
