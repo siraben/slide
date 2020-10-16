@@ -51,7 +51,7 @@ pub fn get_hover_info(
 fn fmt_asgn_definitions(asgns: &[&Assignment]) -> String {
     let mut seen = HashSet::new();
     asgns
-        .into_iter()
+        .iter()
         .filter_map(|asgn| {
             if seen.contains(&asgn.rhs) {
                 return None;

@@ -11,7 +11,7 @@ pub fn convert_diagnostics(
     source: &str,
 ) -> Vec<Diagnostic> {
     diagnostics
-        .into_iter()
+        .iter()
         .map(|diagnostic| Diagnostic {
             range: to_range(&diagnostic.span, source),
             severity: Some(to_severity(&diagnostic.kind)),
